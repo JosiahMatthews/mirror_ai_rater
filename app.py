@@ -8,28 +8,31 @@ from datetime import datetime
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-st.set_page_config(page_title="Mirror AI Call Evaluator", page_icon="🔮")
+st.set_page_config(page_title="Mirror AI Call Evaluator", page_icon="🔮", layout="centered")
 st.title("🔮 Mirror AI Call Evaluator")
 
-# Input fields
-rep_name = st.text_input("🧑 Name of Rep", placeholder="e.g. Josiah")
-reviewer_name = st.text_input("🧠 Name of Reviewer", value="Mirror AI Coach")
-call_date = st.date_input("📅 Date of Call", value=datetime.today())
+# === Section: Rep Info ===
+st.markdown("### 🧑 Rep Information")
+rep_name = st.text_input("Name of Rep", placeholder="e.g. Josiah")
+reviewer_name = st.text_input("Name of Reviewer", value="Mirror AI Coach")
+call_date = st.date_input("Date of Call", value=datetime.today())
 
-# Call outcome checkbox and conditional revenue input
+# === Section: Call Outcome ===
+st.markdown("### 📈 Outcome")
 call_closed = st.checkbox("✅ Did the call close?")
 revenue_total = st.number_input("💵 Revenue Collected (if closed)", min_value=0, step=100, format="%d") if call_closed else None
 
-uploaded_file = st.file_uploader("🖋️ Upload Call Transcript (.txt)", type=["txt"])
+# === Section: Transcript Upload ===
+st.markdown("### 📝 Upload Call Transcript (.txt)")
+uploaded_file = st.file_uploader("Upload Transcript", type=["txt"])
 
 if uploaded_file is not None:
     transcript = uploaded_file.read().decode("utf-8")
     word_count = len(transcript.split())
     call_length = f"{round(word_count / 140)} minutes"
-
     call_outcome_ui = "Yes" if call_closed else "No" if call_closed is False else "Objection follow-up"
 
-    with st.spinner("🔄 Analyzing call..."):
+    with st.spinner("🔍 Analyzing call transcript..."):
         system_prompt = f"""
         You are a brutal, elite-level sales call evaluator trained in buyer psychology, emotional influence, and persuasion frameworks (Robert Cialdini, NEPQ, high-ticket closing).
 
@@ -98,7 +101,6 @@ if uploaded_file is not None:
         st.success("✅ Call evaluated successfully!")
 
         st.download_button("📩 Download Feedback", data=feedback, file_name="feedback_output.txt")
-        st.text_area("📋 Call Review Output", value=feedback, height=600)
-
+        st.text_area("📋 Call Review Output", value=feedback, height=600, disabled=True)
 else:
     st.info("📄 Upload a transcript to begin your evaluation.")
