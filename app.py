@@ -4,79 +4,40 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 
-# Load .env
+# Load environment variables
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# --- Page Config ---
-st.set_page_config(page_title="Mirror AI Evaluator", page_icon="🔮", layout="centered")
+st.set_page_config(page_title="Mirror AI Call Evaluator", page_icon="🔮")
+st.title("🔮 Mirror AI Call Evaluator")
 
-# --- Custom Style ---
-st.markdown("""
-    <style>
-    html, body, [class*="st-"] {
-        background-color: #0d1117;
-        color: #ffffff;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    .big-title {
-        font-size: 3rem;
-        font-weight: 700;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .section {
-        margin-bottom: 1.5rem;
-    }
-    .score-card {
-        padding: 1rem;
-        background: #161b22;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-    }
-    .highlight {
-        color: #58a6ff;
-        font-weight: bold;
-    }
-    .probability-bar {
-        height: 22px;
-        background: linear-gradient(90deg, #00FF85 0%, #FFD000 50%, #FF3B3B 100%);
-        border-radius: 10px;
-        overflow: hidden;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- Header ---
-st.markdown("<div class='big-title'>🔮 Mirror AI Call Evaluator</div>", unsafe_allow_html=True)
-
-# --- Inputs ---
-rep_name = st.text_input("👤 Name of Rep", placeholder="e.g. Josiah")
+# Input fields
+rep_name = st.text_input("🧑 Name of Rep", placeholder="e.g. Josiah")
 reviewer_name = st.text_input("🧠 Name of Reviewer", value="Mirror AI Coach")
-call_date = st.date_input("📆 Date of Call", value=datetime.today())
-uploaded_file = st.file_uploader("📎 Upload Call Transcript (.txt)", type=["txt"])
+call_date = st.date_input("📅 Date of Call", value=datetime.today())
 
-if uploaded_file:
+# Call outcome checkbox and conditional revenue input
+call_closed = st.checkbox("✅ Did the call close?")
+revenue_total = st.number_input("💵 Revenue Collected (if closed)", min_value=0, step=100, format="%d") if call_closed else None
+
+uploaded_file = st.file_uploader("🖋️ Upload Call Transcript (.txt)", type=["txt"])
+
+if uploaded_file is not None:
     transcript = uploaded_file.read().decode("utf-8")
     word_count = len(transcript.split())
     call_length = f"{round(word_count / 140)} minutes"
 
-    lowered = transcript.lower()
-    if any(kw in lowered for kw in ["i'm ready to get started", "let's do it"]):
-        call_outcome = "Yes"
-    elif any(kw in lowered for kw in ["i need to check", "talk to my partner"]):
-        call_outcome = "Soft Yes"
-    elif any(kw in lowered for kw in ["i'll think about it", "not now"]):
-        call_outcome = "Soft No"
-    else:
-        call_outcome = "Objection follow-up"
+    call_outcome_ui = "Yes" if call_closed else "No" if call_closed is False else "Objection follow-up"
 
-    with st.spinner("🧠 Analyzing call transcript..."):
+    with st.spinner("🔄 Analyzing call..."):
         system_prompt = f"""
-You are a brutal, elite-level sales evaluator using the MIRRORS + F.A.S.T. framework only.
-Score 1-5 for each category, note strengths and timestamp failures, then summarize close probability.
+        You are a brutal, elite-level sales call evaluator trained in buyer psychology, emotional influence, and persuasion frameworks (Robert Cialdini, NEPQ, high-ticket closing).
 
-MIRRORS Sales Framework:
+        Use ONLY the MIRRORS and F.A.S.T. frameworks below to analyze the transcript. Score each section 1–5. Provide time-stamped notes, objections if applicable, and brutally honest coaching.
+
+        Before scoring, double-check if the call actually closed — use intuition and conversation flow, not just keyword detection like 'let's do it'. Provide a second opinion on whether this truly sounds like a close and update the call outcome accordingly.
+
+        MIRRORS Sales Framework:
         M - Map The Mission:
         - Goal: put the focus on them and a vauge goal.
         - Ask: Why are we here? What are you looking for?
@@ -111,17 +72,22 @@ MIRRORS Sales Framework:
         S - Shift (lifestyle transformation)
         T - Timeline & Trust (expectations & logic)
 
-Give:
-1. Each section score 1–5  
-2. Close probability (0–100%)  
-3. Summary of strengths/weaknesses  
-4. Two clear coaching action steps
+        FORMAT:
+        Call Review:
+        » Name of Rep: {rep_name}
+        » Name of reviewer: {reviewer_name}
+        » Date of call: {call_date.strftime('%Y-%m-%d')}
+        » Length of call: {call_length}
+        » UI-selected call outcome: {call_outcome_ui}
+        » Revenue Collected (if any): {'$' + str(revenue_total) if revenue_total else 'N/A'}
 
-Rep: {rep_name} | Reviewer: {reviewer_name} | Date: {call_date.strftime('%Y-%m-%d')} | Length: {call_length} | Outcome: {call_outcome}
-"""
+        Score each MIRRORS and F.A.S.T. section 1-5 with clear notes and timestamps.
+        Include: Total score, AI opinion on probability to close, summary, and 2 action steps.
+        """
+
         client = openai.OpenAI()
         response = client.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": transcript}
@@ -129,19 +95,10 @@ Rep: {rep_name} | Reviewer: {reviewer_name} | Date: {call_date.strftime('%Y-%m-%
         )
 
         feedback = response.choices[0].message.content
-        st.success("✅ Review complete!")
+        st.success("✅ Call evaluated successfully!")
 
-        # --- Visual Enhancements ---
-        if "probability to close" in feedback.lower():
-            import re
-            match = re.search(r"Probability to close: (\d+)%", feedback)
-            if match:
-                pct = int(match.group(1))
-                st.markdown("### 🔥 Probability to Close")
-                st.progress(pct / 100)
-
-        st.download_button("⬇️ Download Feedback", feedback, file_name="call_review.txt")
-        st.text_area("📋 Full Feedback", value=feedback, height=600)
+        st.download_button("📩 Download Feedback", data=feedback, file_name="feedback_output.txt")
+        st.text_area("📋 Call Review Output", value=feedback, height=600)
 
 else:
     st.info("📄 Upload a transcript to begin your evaluation.")
