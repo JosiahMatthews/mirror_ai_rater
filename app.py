@@ -3,28 +3,25 @@ import openai
 import os
 from dotenv import load_dotenv
 from datetime import datetime
+import re
 
 # Load environment variables
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-st.set_page_config(page_title="Mirror AI Call Evaluator", page_icon="🔮", layout="centered")
+st.set_page_config(page_title="Mirror AI Call Evaluator", page_icon="🔮")
 st.title("🔮 Mirror AI Call Evaluator")
 
-# === Section: Rep Info ===
-st.markdown("### 🧑 Rep Information")
-rep_name = st.text_input("Name of Rep", placeholder="e.g. Josiah")
-reviewer_name = st.text_input("Name of Reviewer", value="Mirror AI Coach")
-call_date = st.date_input("Date of Call", value=datetime.today())
+# Input fields
+rep_name = st.text_input("🧑 Name of Rep", placeholder="e.g. Josiah")
+reviewer_name = st.text_input("🧠 Name of Reviewer", value="Mirror AI Coach")
+call_date = st.date_input("📅 Date of Call", value=datetime.today())
 
-# === Section: Call Outcome ===
-st.markdown("### 📈 Outcome")
+# Call outcome checkbox and conditional revenue input
 call_closed = st.checkbox("✅ Did the call close?")
 revenue_total = st.number_input("💵 Revenue Collected (if closed)", min_value=0, step=100, format="%d") if call_closed else None
 
-# === Section: Transcript Upload ===
-st.markdown("### 📝 Upload Call Transcript (.txt)")
-uploaded_file = st.file_uploader("Upload Transcript", type=["txt"])
+uploaded_file = st.file_uploader("✍️ Upload Call Transcript (.txt)", type=["txt"])
 
 if uploaded_file is not None:
     transcript = uploaded_file.read().decode("utf-8")
@@ -32,7 +29,7 @@ if uploaded_file is not None:
     call_length = f"{round(word_count / 140)} minutes"
     call_outcome_ui = "Yes" if call_closed else "No" if call_closed is False else "Objection follow-up"
 
-    with st.spinner("🔍 Analyzing call transcript..."):
+    with st.spinner("🔄 Analyzing call..."):
         system_prompt = f"""
         You are a brutal, elite-level sales call evaluator trained in buyer psychology, emotional influence, and persuasion frameworks (Robert Cialdini, NEPQ, high-ticket closing).
 
@@ -101,6 +98,18 @@ if uploaded_file is not None:
         st.success("✅ Call evaluated successfully!")
 
         st.download_button("📩 Download Feedback", data=feedback, file_name="feedback_output.txt")
-        st.text_area("📋 Call Review Output", value=feedback, height=600, disabled=True)
+
+        # Try to extract score lines and display as progress bars
+        st.subheader("📊 Scores Breakdown")
+        score_lines = re.findall(r"(MIRRORS|F\.A\.S\.T)[\s\S]+?(?=\n\n|$)", feedback)
+        section_scores = re.findall(r"(M|I|R|O|S|F|A|T)[^\n]*?:\s*(\d)\s*/\s*5", feedback)
+
+        if section_scores:
+            for section, score in section_scores:
+                st.progress(int(score) / 5, text=f"{section} Score: {score}/5")
+
+        # Show full text (read-only)
+        st.subheader("📋 Full Evaluation Output")
+        st.text_area("Call Review Output", value=feedback, height=600, disabled=True)
 else:
     st.info("📄 Upload a transcript to begin your evaluation.")
